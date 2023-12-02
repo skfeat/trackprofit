@@ -2,21 +2,27 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const app = express();
+app.use(express.json());
 app.use(cors());
 const port = 3000;
 
 // Connection URI
-const uri = 'mongodb+srv://skfeat:Raj1775@cluster0.clqoh73.mongodb.net/Data';
+const uri = 'mongodb+srv://skfeat:Raj1775@cluster0.clqoh73.mongodb.net/DataTest';
 
 // Connect to the MongoDB cluster using Mongoose
 mongoose.connect(uri)
   .then(() => {
     console.log('Connected to MongoDB using Mongoose');
 
-    // Example: Create a Mongoose model
+    const paymentHistorySchema = new mongoose.Schema({
+      date: { type: Date, default: Date.now, required: true },
+      amount: { type: Number, required: true },
+      status: { type: String,default:"Pending" },
+      view: { type: Number, default: 0 },
+    });
     const yourSchema = new mongoose.Schema({
       view: { type: Number, default: 0 },
-      lastPaid: { type: Number, default: 0 }
+      paymentHistory: [paymentHistorySchema],
     });
 
     const YourModel = mongoose.model('YourModel', yourSchema);
@@ -54,23 +60,78 @@ mongoose.connect(uri)
           res.status(500).json({ error: 'Internal Server Error' });
         }
       });
-      app.get('/lastpaid/:value', async (req, res) => {
+
+
+      app.post('/addpayment', async (req, res) => {
         try {
-          const value = req.params.value;
-  
-          // Find the document and update the 'view' field with the provided value
+          const { amount, view } = req.body;
+      
+          // Validate the request body
+          if (!amount) {
+            return res.status(400).json({ error: 'Amount is required.' });
+          }
+      
+          // Find or create the document
           const updatedDocument = await YourModel.findOneAndUpdate(
             {},
-            { $set: { lastPaid: value } }, // Set the 'view' field to the provided value
-            { new: true } // Return the modified document
+            {
+              $push: {
+                paymentHistory: { amount, view }
+              }
+            },
+            { 
+              new: true, // Return the modified document
+            }
           );
-  
-          res.json({ message: 'View updated successfully', updatedDocument });
+      
+          res.json(updatedDocument);
         } catch (error) {
-          console.error('Error updating view:', error);
+          console.error(error);
           res.status(500).json({ error: 'Internal Server Error' });
         }
       });
+      
+
+      app.put('/updatestatus/:paymentId', async (req, res) => {
+        try {
+          const { paymentId } = req.params;
+          const { status } = req.body;
+      
+          // Validate the request body
+          if (!status) {
+            return res.status(400).json({ error: 'Status is required.' });
+          }
+      
+          // Find the document and update the payment status
+          const updatedDocument = await YourModel.findOneAndUpdate(
+            { 'paymentHistory._id': paymentId },
+            {
+              $set: {
+                'paymentHistory.$.status': status
+              }
+            },
+            { 
+              new: true // Return the modified document
+            }
+          );
+      
+          if (!updatedDocument) {
+            return res.status(404).json({ error: 'Payment not found.' });
+          }
+      
+          res.json(updatedDocument);
+        } catch (error) {
+          console.error(error);
+          res.status(500).json({ error: 'Internal Server Error' });
+        }
+      });
+      
+
+
+
+
+
+
 
 
     app.get('/getdata', async (req, res) => {
