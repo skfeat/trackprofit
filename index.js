@@ -2,9 +2,25 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const app = express();
+const WebSocket = require('ws'); // Import WebSocket library
+const http = require('http');
+const server = http.createServer(app);
+const wss = new WebSocket.Server({ server });
+
+
+
+
+
+
+
+
+
+
+
+
 app.use(express.json());
 app.use(cors());
-const port = 3000;
+const port = 3002;
 
 // Connection URI
 const uri = 'mongodb+srv://skfeat:Raj1775@cluster0.clqoh73.mongodb.net/DataTest';
@@ -42,6 +58,50 @@ mongoose.connect(uri)
           res.status(500).json({ error: 'Internal Server Error' });
         }
       });
+
+
+//WEBSOCKET CODE 
+
+wss.on('connection', (ws) => {
+  console.log('WebSocket connected');
+
+  // Send initial data when a client connects
+  YourModel.find({}).then((documents) => {
+    ws.send(JSON.stringify({ type: 'INITIAL_DATA', data: documents }));
+  });
+
+  // Listen for changes and broadcast to connected clients
+  const changeStream = YourModel.watch();
+  changeStream.on('change', async () => {
+    const updatedDocuments = await YourModel.find({});
+    ws.send(JSON.stringify({ type: 'UPDATE_DATA', data: updatedDocuments }));
+  });
+
+  // Handle WebSocket closure
+  ws.on('close', () => {
+    console.log('WebSocket disconnected');
+    changeStream.close();
+  });
+});
+
+server.listen(port, () => {
+  console.log(`Server is running on http://localhost:300`);
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
       app.get('/putviews/:value', async (req, res) => {
         try {
@@ -147,7 +207,7 @@ mongoose.connect(uri)
       }
     });
 
-    app.listen(port, () => {
+    app.listen(3000, () => {
       console.log(`Server is running on http://localhost:${port}`);
     });
   })
